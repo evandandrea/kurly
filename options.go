@@ -192,10 +192,8 @@ func (o *Options) openOutputFile() *os.File {
 	var outputFile *os.File
 	if o.outputFilename != "" {
 		if o.resume {
-			if fileStat, err := os.Stat(o.outputFilename); err == nil {
-				if outputFile, err = os.OpenFile(o.outputFilename, os.O_APPEND|os.O_WRONLY, 0600); err != nil {
-					Status.Fatalf("Error: Unable to append to file '%s' for output\n", o.outputFilename)
-				}
+			if outputFile, err = os.OpenFile(o.outputFilename, os.O_APPEND|os.O_WRONLY, 0600); err != nil {
+				Status.Fatalf("Error: Unable to append to file '%s' for output\n", o.outputFilename)
 			}
 		}
 		if !o.resume {
