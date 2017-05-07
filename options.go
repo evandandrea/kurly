@@ -193,8 +193,6 @@ func (o *Options) openOutputFile() *os.File {
 	if o.outputFilename != "" {
 		if o.resume {
 			if fileStat, err := os.Stat(o.outputFilename); err == nil {
-				Status.Printf("Error: File '%s' exists\n", o.outputFilename)
-				Status.Printf("File size on disk is %v", fileStat.Size())
 				if outputFile, err = os.OpenFile(o.outputFilename, os.O_APPEND|os.O_WRONLY, 0600); err != nil {
 					Status.Fatalf("Error: Unable to append to file '%s' for output\n", o.outputFilename)
 				}
