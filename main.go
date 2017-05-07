@@ -121,34 +121,74 @@ func main() {
 			body = &data
 		}
 
+		// Somewhere in here I need to add an if opts.resume, then set the range based on the filebytes on disk
+		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+
 		req, err := http.NewRequest(opts.method, target, body)
 		if err != nil {
 			Status.Fatalf("Error: unable to create http %s request; %s\n", opts.method, err)
 		}
-		req.Header.Set("User-Agent", opts.agent)
-		req.Header.Set("Accept", "*/*")
-		req.Header.Set("Host", remote.Host)
-		if body != nil {
-			switch b := body.(type) {
-			case *os.File:
-				fi, err := b.Stat()
-				if err != nil {
-					Status.Fatalf("Unable to get file stats for %v\n", opts.fileUpload)
+
+		if !opts.resume {
+			req.Header.Set("User-Agent", opts.agent)
+			req.Header.Set("Accept", "*/*")
+			req.Header.Set("Host", remote.Host)
+			if body != nil {
+				switch b := body.(type) {
+				case *os.File:
+					fi, err := b.Stat()
+					if err != nil {
+						Status.Fatalf("Unable to get file stats for %v\n", opts.fileUpload)
+					}
+					req.ContentLength = fi.Size()
+					req.Header.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+				case *ioprogress.Reader:
+					req.ContentLength = b.Size
+					req.Header.Set("Content-Length", strconv.FormatInt(b.Size, 10))
+				case *bytes.Buffer:
+					req.Header.Set("Content-Length", strconv.FormatInt(int64(b.Len()), 10))
 				}
-				req.ContentLength = fi.Size()
-				req.Header.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
-			case *ioprogress.Reader:
-				req.ContentLength = b.Size
-				req.Header.Set("Content-Length", strconv.FormatInt(b.Size, 10))
-			case *bytes.Buffer:
-				req.Header.Set("Content-Length", strconv.FormatInt(int64(b.Len()), 10))
+			}
+			setHeaders(req, opts.headers)
+
+			fmt.Fprintln(Outgoing, req.Method, req.URL.Path, req.Proto)
+			for k, v := range req.Header {
+				fmt.Fprintln(Outgoing, k, v)
 			}
 		}
-		setHeaders(req, opts.headers)
+		if opts.resume {
+			var existingFileBytes int64
+			if fileStat, err := os.Stat(opts.outputFilename); err == nil {
+				existingFileBytes = fileStat.Size()
+			}
+			stringExistingFileBytes := strconv.FormatInt(existingFileBytes, 10)
 
-		fmt.Fprintln(Outgoing, req.Method, req.URL.Path, req.Proto)
-		for k, v := range req.Header {
-			fmt.Fprintln(Outgoing, k, v)
+			req.Header.Set("User-Agent", opts.agent)
+			req.Header.Set("Accept", "*/*")
+			req.Header.Set("Host", remote.Host)
+			req.Header.Set("Range", "bytes="+stringExistingFileBytes+"-")
+			if body != nil {
+				switch b := body.(type) {
+				case *os.File:
+					fi, err := b.Stat()
+					if err != nil {
+						Status.Fatalf("Unable to get file stats for %v\n", opts.fileUpload)
+					}
+					req.ContentLength = fi.Size()
+					req.Header.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+				case *ioprogress.Reader:
+					req.ContentLength = b.Size
+					req.Header.Set("Content-Length", strconv.FormatInt(b.Size, 10))
+				case *bytes.Buffer:
+					req.Header.Set("Content-Length", strconv.FormatInt(int64(b.Len()), 10))
+				}
+			}
+			setHeaders(req, opts.headers)
+
+			fmt.Fprintln(Outgoing, req.Method, req.URL.Path, req.Proto)
+			for k, v := range req.Header {
+				fmt.Fprintln(Outgoing, k, v)
+			}
 		}
 
 		resp, err := client.Do(req)

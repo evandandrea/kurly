@@ -34,6 +34,7 @@ type Options struct {
 	dataBinary     []string
 	dataURLEncode  []string
 	head           bool
+	resume         bool
 }
 
 func (o *Options) getOptions(app *cli.App) {
@@ -131,6 +132,11 @@ func (o *Options) getOptions(app *cli.App) {
 			Usage:       "Get HEAD from URL only",
 			Destination: &o.head,
 		},
+		cli.BoolFlag{
+			Name:        "continue, C",
+			Usage:       "Resume previous transfered file, requires destination filename to match",
+			Destination: &o.resume,
+		},
 	}
 }
 
@@ -185,8 +191,19 @@ func (o *Options) openOutputFile() *os.File {
 	var err error
 	var outputFile *os.File
 	if o.outputFilename != "" {
-		if outputFile, err = os.Create(o.outputFilename); err != nil {
-			Status.Fatalf("Error: Unable to create file '%s' for output\n", o.outputFilename)
+		if o.resume {
+			if fileStat, err := os.Stat(o.outputFilename); err == nil {
+				Status.Printf("Error: File '%s' exists\n", o.outputFilename)
+				Status.Printf("File size on disk is %v", fileStat.Size())
+				if outputFile, err = os.OpenFile(o.outputFilename, os.O_APPEND|os.O_WRONLY, 0600); err != nil {
+					Status.Fatalf("Error: Unable to append to file '%s' for output\n", o.outputFilename)
+				}
+			}
+		}
+		if !o.resume {
+			if outputFile, err = os.Create(o.outputFilename); err != nil {
+				Status.Fatalf("Error: Unable to create file '%s' for output\n", o.outputFilename)
+			}
 		}
 	} else {
 		outputFile = os.Stdout
