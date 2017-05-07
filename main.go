@@ -121,9 +121,6 @@ func main() {
 			body = &data
 		}
 
-		// Somewhere in here I need to add an if opts.resume, then set the range based on the filebytes on disk
-		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-
 		req, err := http.NewRequest(opts.method, target, body)
 		if err != nil {
 			Status.Fatalf("Error: unable to create http %s request; %s\n", opts.method, err)
